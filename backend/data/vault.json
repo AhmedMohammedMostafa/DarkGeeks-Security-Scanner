@@ -1,0 +1,20 @@
+{
+  "locked": false,
+  "salt": "6045c01134e9594093fd402f4ad8f3dd3c172d52b11c821193511c2e40b313a9",
+  "key": "fdb73ede7252207b274acc3e09af1d5b78513d591965211b2e1f05d0c107e8fd",
+  "items": [
+    {
+      "id": "709e6ebb-9c51-468b-ad28-f272c8157a1b",
+      "type": "password",
+      "name": "mentux",
+      "tags": [],
+      "data": {
+        "iv": "2ec72cf95207ba25e02dfd58",
+        "encrypted": "3dda29a01364eefda23e8fb2fe253443e3c0fa7ce217e4c8516d3547372548a968c717b5fdf4ff6ce62a4885c38bbbf210f35ee511a96a5ef19143461f47c6fd8498096dc154fc4d070d0486fd4f78d0c42fad154344088aecad861ac7c51381daed43ca",
+        "tag": "178b1d7af3d104ea28990a3ab52c9610"
+      }
+    }
+  ],
+  "lastAccess": "2025-03-17T23:42:03.117Z",
+  "itemCount": 1
+}

@@ -1,0 +1,7 @@
+{
+  "threshold": 0.8,
+  "monitoringEnabled": true,
+  "captureInterval": 60,
+  "maxPacketsPerCapture": 1000,
+  "alertOnAnomaly": true
+}

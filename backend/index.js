@@ -1,147 +1,204 @@
+require("dotenv").config();
+
 const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
-const helmet = require("helmet");
 const cors = require("cors");
-const dotenv = require("dotenv");
+const helmet = require("helmet");
+const morgan = require("morgan");
+const path = require("path");
+const fs = require("fs");
 const winston = require("winston");
-const { errorHandler } = require("./middleware/errorHandler");
 
-const scanRoutes = require("./routes/scanRoutes");
-const malwareRoutes = require("./routes/malwareRoutes");
-const ruleRoutes = require("./routes/ruleRoutes");
-const pwnedRoutes = require("./routes/pwnedRoutes");
-const vaultRoutes = require("./routes/vaultRoutes");
+// Validate required environment variables
+const requiredEnvVars = [
+  "PORT",
+  "NODE_ENV",
+  "JWT_SECRET",
+  "VAULT_ENCRYPTION_KEY",
+  "LOG_LEVEL",
+];
 
-dotenv.config();
+const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
+if (missingEnvVars.length > 0) {
+  console.error("Missing required environment variables:", missingEnvVars);
+  process.exit(1);
+}
 
+// Import routes
+const portScanRoutes = require("./routes/portScan");
+const securityRoutes = require("./routes/security");
+const anomalyRoutes = require("./routes/anomaly");
+const vaultRoutes = require("./routes/vault");
+const settingsRoutes = require("./routes/settings");
+const networkRoutes = require("./routes/network");
+
+// Create Express app
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
     methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
+// Create required directories
+const dirs = ["logs", "data", "temp", "backup"];
+dirs.forEach((dir) => {
+  const dirPath = path.join(__dirname, dir);
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+});
+
+// Configure logger
 const logger = winston.createLogger({
-  level: "info",
+  level: process.env.LOG_LEVEL || "info",
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.json()
   ),
   transports: [
-    new winston.transports.File({ filename: "logs/error.log", level: "error" }),
-    new winston.transports.File({ filename: "logs/combined.log" }),
+    new winston.transports.File({
+      filename: path.join(__dirname, "logs", "error.log"),
+      level: "error",
+      maxsize: 10 * 1024 * 1024, // 10MB
+      maxFiles: 5,
+    }),
+    new winston.transports.File({
+      filename: path.join(__dirname, "logs", "combined.log"),
+      maxsize: 10 * 1024 * 1024, // 10MB
+      maxFiles: 5,
+    }),
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      ),
+    }),
   ],
 });
 
-if (process.env.NODE_ENV !== "production") {
-  logger.add(
-    new winston.transports.Console({
-      format: winston.format.simple(),
-    })
-  );
-}
-
-app.use(helmet());
+// Middleware
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
   })
 );
+app.use(helmet());
 app.use(express.json());
+app.use(
+  morgan(process.env.LOG_FORMAT || "combined", {
+    stream: { write: (message) => logger.info(message.trim()) },
+  })
+);
 
-app.use("/api/scan", scanRoutes);
-app.use("/api/malware", malwareRoutes);
-app.use("/api/rules", ruleRoutes);
-app.use("/api/pwned", pwnedRoutes);
-app.use("/api/vault", vaultRoutes);
-
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "healthy" });
+// Request logging middleware
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.url}`, {
+    ip: req.ip,
+    userAgent: req.get("user-agent"),
+    query: req.query,
+    params: req.params,
+  });
+  next();
 });
 
+// Response logging middleware
+app.use((req, res, next) => {
+  const originalSend = res.send;
+  res.send = function (body) {
+    logger.info(`Response for ${req.method} ${req.url}`, {
+      statusCode: res.statusCode,
+      responseTime: Date.now() - req._startTime,
+    });
+    originalSend.call(this, body);
+  };
+  next();
+});
+
+// Routes
+app.use("/api/security", securityRoutes);
+app.use("/api/network", networkRoutes);
+app.use("/api/anomaly", anomalyRoutes);
+app.use("/api/vault", vaultRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/scan", portScanRoutes);
+
+// Socket.io connection
 io.on("connection", (socket) => {
-  logger.info("New client connected");
+  logger.info(`Client connected: ${socket.id}`, {
+    ip: socket.handshake.address,
+    userAgent: socket.handshake.headers["user-agent"],
+  });
 
   socket.on("disconnect", () => {
-    logger.info("Client disconnected");
+    logger.info(`Client disconnected: ${socket.id}`);
   });
 
-  socket.on("start_port_scan", async (data) => {
-    try {
-      const { host, startPort, endPort } = data;
-      const portScanner = require("./utils/portScanner");
-
-      socket.emit("scan_update", { status: "initializing", progress: 0 });
-
-      const results = await portScanner.scanRange(
-        host,
-        startPort,
-        endPort,
-        (progress) => {
-          socket.emit("scan_update", {
-            status: "scanning",
-            progress: Math.floor((progress.current / progress.total) * 100),
-            currentPort: progress.current,
-            result: progress.result,
-          });
-        }
-      );
-
-      socket.emit("scan_complete", results);
-    } catch (error) {
-      logger.error("Port scan error:", error);
-      socket.emit("scan_error", { message: error.message });
-    }
-  });
-
-  socket.on("start_malware_scan", async (data) => {
-    try {
-      const { path } = data;
-      const malwareDetector = require("./utils/malwareDetector");
-
-      socket.emit("scan_update", { status: "initializing", type: "malware" });
-      const results = await malwareDetector.scanDirectory(path);
-      socket.emit("scan_complete", { type: "malware", results });
-    } catch (error) {
-      logger.error("Malware scan error:", error);
-      socket.emit("scan_error", { type: "malware", message: error.message });
-    }
-  });
-
-  socket.on("vault_operation", async (data) => {
-    try {
-      const { operation, identifier, payload } = data;
-      const secureVault = require("./utils/secureVault");
-
-      let result;
-      switch (operation) {
-        case "store":
-          result = await secureVault.store(identifier, payload);
-          break;
-        case "retrieve":
-          result = await secureVault.retrieve(identifier);
-          break;
-        case "delete":
-          result = await secureVault.delete(identifier);
-          break;
-        default:
-          throw new Error("Invalid vault operation");
-      }
-
-      socket.emit("vault_update", { operation, result });
-    } catch (error) {
-      logger.error("Vault operation error:", error);
-      socket.emit("vault_error", { message: error.message });
-    }
+  socket.on("error", (error) => {
+    logger.error(`Socket error for client ${socket.id}:`, error);
   });
 });
 
-app.use(errorHandler);
+// Error handling middleware
+app.use((err, req, res, next) => {
+  logger.error(`Error: ${err.message}`, {
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    ip: req.ip,
+    query: req.query,
+    params: req.params,
+    body: req.body,
+  });
 
+  res.status(err.status || 500).json({
+    success: false,
+    error:
+      process.env.NODE_ENV === "development"
+        ? err.message
+        : "Internal server error",
+    stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  logger.warn(`404 Not Found: ${req.method} ${req.url}`, {
+    ip: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+  res.status(404).json({
+    success: false,
+    error: "Route not found",
+  });
+});
+
+// Start server
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
+const HOST = process.env.HOST || "localhost";
+
+server.listen(PORT, HOST, () => {
+  logger.info(`Server running on http://${HOST}:${PORT}`, {
+    nodeEnv: process.env.NODE_ENV,
+    corsOrigin: process.env.CORS_ORIGIN,
+  });
 });
+
+// Handle uncaught exceptions
+process.on("uncaughtException", (error) => {
+  logger.error("Uncaught Exception:", error);
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on("unhandledRejection", (reason, promise) => {
+  logger.error("Unhandled Rejection:", reason);
+});
+
+module.exports = { app, server, io };

@@ -1,0 +1,1 @@
+cd "C:\Users\pc\Documents\My Life\Uni\Security Project UNI" && run.bat

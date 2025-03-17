@@ -1,0 +1,26 @@
+{
+  "security": {
+    "autoScan": true,
+    "scanInterval": 3600,
+    "notifications": true,
+    "threatLevel": "medium"
+  },
+  "network": {
+    "monitoringEnabled": true,
+    "portScanningEnabled": true,
+    "anomalyDetection": true,
+    "alertThreshold": 0.8
+  },
+  "vault": {
+    "autoLock": true,
+    "lockTimeout": 300,
+    "backupEnabled": true,
+    "backupInterval": 86400
+  },
+  "system": {
+    "darkMode": true,
+    "telemetryEnabled": true,
+    "updateCheck": true,
+    "logRetention": 30
+  }
+}

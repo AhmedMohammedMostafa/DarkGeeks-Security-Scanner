@@ -1,28 +1,33 @@
 {
-  "name": "cybersecurity-dashboard-backend",
+  "name": "security-dashboard-backend",
   "version": "1.0.0",
-  "description": "Backend for Cybersecurity Dashboard Application",
+  "description": "Backend for Security Dashboard",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
-    "test": "jest"
+    "dev": "node --watch index.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.7.2",
-    "helmet": "^7.1.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "bcrypt": "^5.1.1",
-    "jsonwebtoken": "^9.0.2",
-    "winston": "^3.11.0",
     "axios": "^1.6.2",
-    "net": "^1.0.2",
-    "node-port-scanner": "^3.0.1"
+    "bcryptjs": "^2.4.3",
+    "clamscan": "^2.1.2",
+    "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "node-nmap": "^4.0.0",
+    "node-powershell": "^5.0.1",
+    "node-ssh": "^13.1.0",
+    "snyk": "^1.1234.0",
+    "socket.io": "^4.7.2",
+    "systeminformation": "^5.21.17",
+    "winston": "^3.11.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2",
-    "jest": "^29.7.0"
+    "nodemon": "^3.0.1"
   }
 }
