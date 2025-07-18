@@ -18,7 +18,7 @@
     "express-rate-limit": "^7.1.5",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
-    "morgan": "^1.10.0",
+    "morgan": "^1.10.1",
     "node-nmap": "^4.0.0",
     "node-powershell": "^5.0.1",
     "node-ssh": "^13.1.0",
