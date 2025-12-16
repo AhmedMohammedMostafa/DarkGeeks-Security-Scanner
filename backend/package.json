@@ -24,7 +24,7 @@
     "node-ssh": "^13.1.0",
     "snyk": "^1.1234.0",
     "socket.io": "^4.7.2",
-    "systeminformation": "^5.21.17",
+    "systeminformation": "^5.27.14",
     "winston": "^3.11.0"
   },
   "devDependencies": {
